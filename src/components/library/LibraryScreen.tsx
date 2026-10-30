@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, BookOpen, Mic, Plus } from "lucide-react";
-import { ORDERING_COFFEE_EPISODE_ID } from "@/lib/episodes/sampleDeck";
+import { SAMPLE_EPISODE_ID } from "@/lib/episodes/sampleDeck";
 import { summarizeDecks } from "@/lib/study/collection";
 import { useStudy } from "@/lib/study/store";
 
@@ -122,10 +122,10 @@ export function LibraryScreen() {
           </p>
           <div className="mt-5">
             <Link
-              href={`/import/${ORDERING_COFFEE_EPISODE_ID}`}
+              href={`/import/${SAMPLE_EPISODE_ID}`}
               className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-[#146c43] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0f5635]"
             >
-              <span>Preview Ordering Coffee</span>
+              <span>Preview SCN-021 You forgot their name again</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>

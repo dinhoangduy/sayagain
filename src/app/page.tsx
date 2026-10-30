@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { EpisodeLookupForm } from "@/components/import/EpisodeLookupForm";
-import { ORDERING_COFFEE_EPISODE_ID } from "@/lib/episodes/sampleDeck";
+import { SAMPLE_EPISODE_ID } from "@/lib/episodes/sampleDeck";
 import { summarizeDecks } from "@/lib/study/collection";
 import { useStudy } from "@/lib/study/store";
 
@@ -62,10 +62,10 @@ export default function HomePage() {
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
             <Link
-              href={`/import/${ORDERING_COFFEE_EPISODE_ID}`}
+              href={`/import/${SAMPLE_EPISODE_ID}`}
               className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl border border-[#c8e3d2] bg-[#f4faf6] px-5 py-3 text-sm font-semibold text-[#146c43] transition hover:bg-[#eaf5ee]"
             >
-              <span>Try Ordering Coffee</span>
+              <span>Try SCN-021 You forgot their name again</span>
             </Link>
           </div>
         </section>
@@ -138,10 +138,10 @@ export default function HomePage() {
             </Link>
           ) : totalCards === 0 ? (
             <Link
-              href={`/import/${ORDERING_COFFEE_EPISODE_ID}`}
+              href={`/import/${SAMPLE_EPISODE_ID}`}
               className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-[#146c43] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#0f5635]"
             >
-              <span>Preview and import Ordering Coffee</span>
+              <span>Preview and import SCN-021 You forgot their name again</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           ) : (
@@ -222,17 +222,17 @@ export default function HomePage() {
               />
               <div>
                 <p className="text-sm font-semibold text-[#132019]">
-                  Start with Ordering Coffee
+                  Start with SCN-021 You forgot their name again
                 </p>
                 <p className="mt-0.5 text-xs leading-relaxed text-[#52635a]">
-                  5 everyday café speaking cards from A2 to B2, ready to preview
-                  and import.
+                  You remember their face but not their name. Preview the deck
+                  and import it.
                 </p>
                 <Link
-                  href={`/import/${ORDERING_COFFEE_EPISODE_ID}`}
+                  href={`/import/${SAMPLE_EPISODE_ID}`}
                   className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#146c43] hover:underline"
                 >
-                  <span>Open Ordering Coffee</span>
+                  <span>Open SCN-021 You forgot their name again</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SearchX } from "lucide-react";
 import { EpisodeLookupForm } from "@/components/import/EpisodeLookupForm";
-import { ORDERING_COFFEE_EPISODE_ID } from "@/lib/episodes/sampleDeck";
+import { SAMPLE_EPISODE_ID } from "@/lib/episodes/sampleDeck";
 
 export default function EpisodeNotFound() {
   return (
@@ -24,10 +24,10 @@ export default function EpisodeNotFound() {
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 border-t border-[#edf2ef] pt-4 text-xs font-semibold">
           <Link
-            href={`/import/${ORDERING_COFFEE_EPISODE_ID}`}
+            href={`/import/${SAMPLE_EPISODE_ID}`}
             className="text-[#146c43] hover:underline"
           >
-            Try Ordering Coffee
+            Try SCN-021 You forgot their name again
           </Link>
           <span className="text-[#cddcd3]">•</span>
           <Link href="/" className="text-[#52635a] hover:text-[#132019]">

@@ -1,5 +1,5 @@
 /**
- * Import id for the Ordering Coffee sample deck.
- * The deck title stays "Ordering Coffee". The link uses this id so it is not a sequential name.
+ * Import id for the sample deck SCN-021 You forgot their name again.
+ * The link uses this id so it is not a sequential name.
  */
-export const ORDERING_COFFEE_EPISODE_ID = "db70b939405121f61a0f82b6";
+export const SAMPLE_EPISODE_ID = "fa46986aa5a5d9cc43d82b38";

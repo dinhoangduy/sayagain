@@ -1,4 +1,4 @@
--- Import links use an unguessable id. The Ordering Coffee title stays the same.
+-- Import links use an unguessable id.
 -- Clients must not be able to list every published episode, or the id is pointless.
 
 insert into public.episodes (
