@@ -12,7 +12,7 @@ export function getSupabasePublicEnv(): SupabasePublicEnv {
 
   if (!url || !publishableKey) {
     throw new Error(
-      "Missing Supabase public credentials. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.local."
+      "Missing Supabase public credentials. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env (or Vercel Environment Variables)."
     );
   }
 
