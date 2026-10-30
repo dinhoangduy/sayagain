@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "SayAgain — English Speaking Practice",
     short_name: "SayAgain",
     description:
-      "Practice speaking English aloud with episode flashcards and FSRS spaced repetition.",
+      "Practice speaking English aloud with one-minute episode flashcards and spaced repetition.",
     start_url: "/",
     scope: "/",
     display: "standalone",

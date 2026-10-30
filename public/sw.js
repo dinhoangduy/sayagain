@@ -3,9 +3,11 @@
 // Security invariant: NEVER intercept or cache cross-origin requests (Supabase),
 // authenticated HTML/RSC responses, or user card/review payloads.
 
-const CACHE_NAME = "sayagain-shell-v1";
+const CACHE_NAME = "sayagain-shell-v2";
 const PRECACHE_URLS = [
   "/offline.html",
+  "/logo.png",
+  "/favicon.ico",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/icon-maskable-512.png",

@@ -3,11 +3,14 @@ import { redirect } from "next/navigation";
 import { LogOut, User } from "lucide-react";
 import { SettingsControls } from "@/components/settings/SettingsControls";
 import { buildLoginHref } from "@/lib/auth/redirect";
+import { pageSeo } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageSeo({
   title: "Settings",
-};
+  description: "Manage your SayAgain account, study data, and app install options.",
+  index: false,
+});
 
 export default async function SettingsPage() {
   const supabase = await createClient();

@@ -5,6 +5,13 @@ import { StudyBoot, SyncStatus } from "@/components/layout/SyncButton";
 import { TopLoader } from "@/components/layout/TopLoader";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
+import {
+  getMetadataBase,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_OG_IMAGE,
+  SITE_TITLE,
+} from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,20 +25,45 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
+  applicationName: SITE_NAME,
   title: {
-    default: "SayAgain — English Speaking Flashcards",
-    template: "%s · SayAgain",
+    default: SITE_TITLE,
+    template: `%s · ${SITE_NAME}`,
   },
-  description:
-    "Import episode speaking flashcards and practice daily aloud with FSRS spaced repetition.",
+  description: SITE_DESCRIPTION,
+  keywords: [
+    "SayAgain",
+    "English One Minute",
+    "English speaking practice",
+    "speaking flashcards",
+    "learn English aloud",
+    "spaced repetition",
+  ],
+  authors: [{ name: SITE_NAME }],
+  creator: SITE_NAME,
+  category: "education",
   manifest: "/manifest.webmanifest",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "SayAgain",
+    title: SITE_NAME,
   },
   icons: {
     icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
@@ -42,6 +74,21 @@ export const metadata: Metadata = {
         type: "image/png",
       },
     ],
+    shortcut: ["/favicon.ico"],
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [SITE_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [SITE_OG_IMAGE.url],
   },
 };
 
@@ -57,12 +104,33 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const siteUrl = getMetadataBase();
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: SITE_NAME,
+    url: siteUrl.origin,
+    description: SITE_DESCRIPTION,
+    applicationCategory: "EducationalApplication",
+    operatingSystem: "Web",
+    image: new URL(SITE_OG_IMAGE.url, siteUrl).toString(),
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+  };
+
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-dvh flex-col bg-[#f7faf8] text-[#132019]">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         <TopLoader />
         <StudyBoot />
         <ServiceWorkerRegistrar />

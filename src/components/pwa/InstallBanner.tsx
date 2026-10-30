@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Check, Copy, Download, ExternalLink, Share, X } from "lucide-react";
 import {
@@ -151,12 +152,13 @@ export function InstallBanner() {
     >
       <div className="mx-auto flex max-w-xl items-center justify-between gap-2.5 px-3.5 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span
-            aria-hidden="true"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#146c43] text-xs font-bold text-white"
-          >
-            SA
-          </span>
+          <Image
+            src="/logo.png"
+            alt=""
+            width={28}
+            height={28}
+            className="h-7 w-7 shrink-0 rounded-full"
+          />
           <div className="min-w-0">
             <p className="truncate text-xs font-semibold leading-tight text-[#132019] sm:text-[13px]">
               {mode === "in-app-browser"

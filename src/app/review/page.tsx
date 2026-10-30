@@ -1,10 +1,13 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { ReviewScreen } from "@/components/review/ReviewScreen";
+import { pageSeo } from "@/lib/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageSeo({
   title: "Review Due Cards",
-};
+  description: "Speak your due English flashcards aloud and rate how well you remembered them.",
+  index: false,
+});
 
 export default function ReviewPage() {
   return (

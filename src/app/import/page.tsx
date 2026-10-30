@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { EpisodeLookupForm } from "@/components/import/EpisodeLookupForm";
+import { pageSeo } from "@/lib/site";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageSeo({
   title: "Import Episode Deck",
-};
+  description:
+    "Paste an English One Minute import link to preview the speaking card and add it to your SayAgain review queue.",
+  canonical: "/import",
+});
 
 export default function ImportIndexPage() {
   return (

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, Home, Mic, Plus, Settings } from "lucide-react";
@@ -30,12 +31,14 @@ export function AppHeader() {
           href="/"
           className="inline-flex items-center gap-2 rounded-lg py-1 pr-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#146c43]"
         >
-          <span
-            aria-hidden="true"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#146c43] text-xs font-bold tracking-tight text-white"
-          >
-            SA
-          </span>
+          <Image
+            src="/logo.png"
+            alt=""
+            width={36}
+            height={36}
+            priority
+            className="h-9 w-9 shrink-0 rounded-full"
+          />
           <span className="text-base font-bold tracking-tight text-[#132019]">
             SayAgain
           </span>

@@ -9,6 +9,7 @@ import {
   parseCardFramework,
   parsePublishedDeck,
 } from "@/lib/episodes/schema";
+import { pageSeo } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 
 interface ImportEpisodePageProps {
@@ -23,7 +24,11 @@ export async function generateMetadata({
   const { episodeId } = await params;
   const parsed = episodeIdSchema.safeParse(episodeId);
   if (!parsed.success) {
-    return { title: "Episode Not Found" };
+    return pageSeo({
+      title: "Episode Not Found",
+      description: "This SayAgain import link does not match a published episode.",
+      index: false,
+    });
   }
 
   const supabase = await createClient();
@@ -32,9 +37,23 @@ export async function generateMetadata({
   });
   const deck = parsePublishedDeck(data);
 
-  return {
-    title: deck ? `Import: ${deck.episode.title}` : "Episode Not Found",
-  };
+  if (!deck) {
+    return pageSeo({
+      title: "Episode Not Found",
+      description: "This SayAgain import link does not match a published episode.",
+      index: false,
+    });
+  }
+
+  const description =
+    deck.episode.description.trim() ||
+    `Preview and import the “${deck.episode.title}” speaking deck into SayAgain.`;
+
+  return pageSeo({
+    title: `Import: ${deck.episode.title}`,
+    description,
+    canonical: `/import/${parsed.data}`,
+  });
 }
 
 export default async function ImportEpisodePage({

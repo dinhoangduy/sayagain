@@ -3,11 +3,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertCircle, ArrowRight, ShieldCheck } from "lucide-react";
 import { sanitizeNextPath } from "@/lib/auth/redirect";
+import { pageSeo } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageSeo({
   title: "Sign In",
-};
+  description: "Sign in to SayAgain to save episode flashcards and review them across devices.",
+  index: false,
+});
 
 const ERROR_MESSAGES: Record<string, string> = {
   oauth_init_failed:
