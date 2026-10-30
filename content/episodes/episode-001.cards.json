@@ -1,0 +1,55 @@
+{
+  "episodeId": "episode-001",
+  "title": "Ordering Coffee",
+  "topic": "Daily Conversations · Café & Food",
+  "description": "Practice polite everyday café requests, customizing drinks, and handling barista follow-up questions naturally.",
+  "language": "en-US",
+  "status": "published",
+  "cards": [
+    {
+      "cardId": "episode-001-a2-order",
+      "level": "A2",
+      "context": "At the café counter",
+      "prompt": "Hi there! What can I get started for you?",
+      "task": "Order a medium iced latte politely.",
+      "answer": "Could I get a medium iced latte, please?",
+      "audioUrl": null
+    },
+    {
+      "cardId": "episode-001-a2-milk",
+      "level": "A2",
+      "context": "Customizing your drink",
+      "prompt": "Sure thing. Whole milk okay, or would you like an alternative?",
+      "task": "Ask for oat milk instead.",
+      "answer": "Could you make it with oat milk instead, please?",
+      "audioUrl": null
+    },
+    {
+      "cardId": "episode-001-b1-sweetness",
+      "level": "B1",
+      "context": "Adjusting flavor & ice",
+      "prompt": "Got it, oat milk iced latte. Anything else with that?",
+      "task": "Ask for less ice and half the usual sweetness.",
+      "answer": "Could I also do light ice and just half-sweet, please?",
+      "audioUrl": null
+    },
+    {
+      "cardId": "episode-001-b1-pastry",
+      "level": "B1",
+      "context": "Adding a snack",
+      "prompt": "No problem! Would you like anything to eat today?",
+      "task": "Add an almond croissant and ask for it warmed up.",
+      "answer": "Yes, I'll take an almond croissant too—could you warm it up for me?",
+      "audioUrl": null
+    },
+    {
+      "cardId": "episode-001-b2-for-here",
+      "level": "B2",
+      "context": "Wrapping up & paying",
+      "prompt": "Will that be for here or to go, and how would you like to pay?",
+      "task": "Say you are staying in and ask to pay by tapping your card.",
+      "answer": "For here, please—and I'll pay by card if I can just tap.",
+      "audioUrl": null
+    }
+  ]
+}
