@@ -12,7 +12,12 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { requestSync } from "@/lib/study/store";
+import {
+  cardsThatWouldBeNew,
+  countNewCards,
+  newCardImportBlockReason,
+} from "@/lib/study/newCards";
+import { requestSync, useStudy } from "@/lib/study/store";
 import type { ImportEpisodeDeckResult } from "@/lib/supabase/database.types";
 
 interface ImportDeckConfirmProps {
@@ -29,12 +34,20 @@ export function ImportDeckConfirm({
   dueInEpisodeCount,
 }: ImportDeckConfirmProps) {
   const router = useRouter();
+  const study = useStudy();
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportEpisodeDeckResult | null>(null);
 
   const ownedCount = result ? result.total_cards : initiallyOwnedCount;
   const allImported = totalCards > 0 && ownedCount >= totalCards;
+  const adding = result ? 0 : cardsThatWouldBeNew(totalCards, initiallyOwnedCount);
+  const newCount = countNewCards(
+    study.items.map((item) => item.userCard.fsrs_state),
+  );
+  const blockReason = study.ready
+    ? newCardImportBlockReason(newCount, adding)
+    : "Checking how many new cards you already have.";
 
   const handleConfirmImport = async () => {
     if (importing) return;
@@ -42,6 +55,7 @@ export function ImportDeckConfirm({
     setError(null);
 
     try {
+      await requestSync();
       const supabase = createClient();
       const { data, error: rpcError } = await supabase.rpc(
         "import_episode_deck",
@@ -51,9 +65,14 @@ export function ImportDeckConfirm({
       );
 
       if (rpcError || !data) {
+        const message = rpcError?.message ?? "";
+        if (message.includes("new_card_limit")) {
+          throw new Error(
+            "You already have 5 new cards. Practice them before importing more.",
+          );
+        }
         throw new Error(
-          rpcError?.message ||
-            "Could not import this episode right now. Please try again."
+          message || "Could not import this episode right now. Please try again.",
         );
       }
 
@@ -128,6 +147,20 @@ export function ImportDeckConfirm({
         </div>
       )}
 
+      {blockReason && !result ? (
+        <div className="rounded-xl border border-[#f0e2c4] bg-[#fff8eb] p-4 text-sm text-[#6d4a10]">
+          <p className="font-semibold text-[#132019]">{blockReason}</p>
+          {study.ready && (
+            <Link
+              href="/review"
+              className="mt-3 inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-[#146c43] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f5635]"
+            >
+              <Mic className="h-4 w-4" aria-hidden="true" />
+              <span>Practice new cards</span>
+            </Link>
+          )}
+        </div>
+      ) : (
       <div className="flex flex-col gap-2.5 sm:flex-row">
         {!allImported || !result ? (
           <button
@@ -180,6 +213,7 @@ export function ImportDeckConfirm({
           </Link>
         )}
       </div>
+      )}
     </div>
   );
 }

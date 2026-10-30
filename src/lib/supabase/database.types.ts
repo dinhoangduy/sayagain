@@ -278,6 +278,10 @@ export type Database = {
         Args: { p_episode_id: string };
         Returns: Json;
       };
+      list_published_catalog: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
       import_episode_deck: {
         Args: { p_episode_id: string };
         Returns: Json;

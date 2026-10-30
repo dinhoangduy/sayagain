@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AvailableDecks } from "@/components/import/AvailableDecks";
 import { EpisodeLookupForm } from "@/components/import/EpisodeLookupForm";
 import { pageSeo } from "@/lib/site";
 
@@ -25,6 +26,8 @@ export default function ImportIndexPage() {
           <EpisodeLookupForm />
         </div>
       </section>
+
+      <AvailableDecks />
     </div>
   );
 }
