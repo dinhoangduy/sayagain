@@ -15,6 +15,7 @@ import {
   INSTALL_DISMISS_STORAGE_KEY,
 } from "@/lib/pwa/platform";
 import { createClient } from "@/lib/supabase/client";
+import { clearLocalStudy } from "@/lib/study/store";
 
 const COMMON_TIMEZONES = [
   "UTC",
@@ -191,6 +192,7 @@ export function SettingsControls({
       }
 
       setConfirmDelete(false);
+      clearLocalStudy(userId);
       setDataMessage("All imported cards and review history have been deleted.");
       router.refresh();
     } catch (err) {

@@ -9,14 +9,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  AlertTriangle,
   CheckCircle2,
-  Eye,
-  Loader2,
-  Mic,
-  RefreshCw,
   Square,
   Volume2,
   WifiOff,
@@ -29,23 +23,24 @@ import {
   type ReviewGrade,
   type ReviewGradeLabel,
 } from "@/lib/fsrs/scheduler";
-import { createClient } from "@/lib/supabase/client";
-import type {
-  SubmitCardReviewResult,
-  UserCardRow,
-} from "@/lib/supabase/database.types";
+import { recordLocalReview } from "@/lib/study/store";
+import type { CardFramework } from "@/lib/episodes/schema";
+import { SpeakingCard } from "@/components/review/SpeakingCard";
+import type { UserCardRow } from "@/lib/supabase/database.types";
 
 export interface DueReviewItem {
   userCard: UserCardRow;
   card: {
     id: string;
     episode_id: string;
-    level: string;
+    level: string | null;
     context: string;
     question: string;
     task: string;
     answer: string;
     audio_url: string | null;
+    image_url: string | null;
+    framework: CardFramework | null;
   };
   episode: {
     id: string;
@@ -53,35 +48,6 @@ export interface DueReviewItem {
     language: string;
   };
 }
-
-interface PendingReviewRecord {
-  eventId: string;
-  cardId: string;
-  cardPrompt: string;
-  gradeLabel: ReviewGradeLabel;
-  rpcArgs: {
-    p_event_id: string;
-    p_card_id: string;
-    p_expected_version: number;
-    p_rating: number;
-    p_fsrs_state: number;
-    p_due_offset_ms: number;
-    p_stability: number;
-    p_difficulty: number;
-    p_elapsed_days: number;
-    p_scheduled_days: number;
-    p_learning_steps: number;
-    p_reps: number;
-    p_lapses: number;
-  };
-}
-
-interface FailedSaveState {
-  record: PendingReviewRecord;
-  errorMessage: string;
-}
-
-const PENDING_STORAGE_KEY = "sayagain_unsaved_review_v1";
 
 const GRADE_BUTTON_STYLES: Record<ReviewGradeLabel, string> = {
   Again:
@@ -91,7 +57,79 @@ const GRADE_BUTTON_STYLES: Record<ReviewGradeLabel, string> = {
   Easy: "border-[#b2ddff] bg-[#eff8ff] text-[#175cd3] hover:bg-[#dbeafe] focus-visible:ring-[#175cd3]",
 };
 
-const emptySubscribe = () => () => {};
+type AudioTarget = "question" | "answer";
+
+interface AudioPlaybackError {
+  target: AudioTarget;
+  message: string;
+}
+
+function isIgnorableSpeechError(error: string): boolean {
+  return error === "canceled" || error === "interrupted";
+}
+
+/**
+ * Speaks on the next turn so a cancel in the current click does not drop the line.
+ * @param utterance - Prepared speech line.
+ * @param stillCurrent - Returns false when a newer click has replaced this playback.
+ * @returns void
+ */
+function speakOnNextTurn(
+  utterance: SpeechSynthesisUtterance,
+  stillCurrent: () => boolean,
+): void {
+  window.setTimeout(() => {
+    if (!stillCurrent()) {
+      return;
+    }
+    window.speechSynthesis.speak(utterance);
+  }, 40);
+}
+
+/**
+ * Toggles spoken playback for one line on the card.
+ * @param props.playing - Whether this line is the one currently speaking.
+ * @param props.name - Spoken name used in the accessible label.
+ * @param props.onClick - Starts or stops playback for this line.
+ * @returns A listen or stop button.
+ */
+function PlaybackButton({
+  playing,
+  name,
+  onClick,
+}: {
+  playing: boolean;
+  name: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={playing ? `Stop ${name}` : `Listen to ${name}`}
+      className="inline-flex h-9 w-[5.75rem] shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#c8e3d2] bg-[#f4faf6] px-3 text-xs font-semibold text-[#146c43] transition hover:bg-[#eaf5ee]"
+    >
+      {playing ? (
+        <>
+          <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+          <span>Stop</span>
+        </>
+      ) : (
+        <>
+          <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>Listen</span>
+        </>
+      )}
+    </button>
+  );
+}
+
+function spokenAnswer(card: DueReviewItem["card"]): string {
+  if (card.framework) {
+    return card.framework.steps.map((step) => step.answer).join(" ");
+  }
+  return card.answer;
+}
 
 function subscribeOnlineStatus(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") {
@@ -105,27 +143,6 @@ function subscribeOnlineStatus(onStoreChange: () => void): () => void {
   };
 }
 
-function readStoredFailedSave(): FailedSaveState | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  try {
-    const savedRaw = window.sessionStorage.getItem(PENDING_STORAGE_KEY);
-    if (!savedRaw) return null;
-    const parsed = JSON.parse(savedRaw) as PendingReviewRecord;
-    if (parsed?.eventId && parsed?.rpcArgs) {
-      return {
-        record: parsed,
-        errorMessage:
-          "An earlier graded review was not saved before reload. Tap Retry Save to sync it.",
-      };
-    }
-  } catch {
-    // Ignore malformed storage entry
-  }
-  return null;
-}
-
 interface ReviewSessionProps {
   initialQueue: DueReviewItem[];
   filteredEpisodeId?: string | null;
@@ -137,21 +154,10 @@ export function ReviewSession({
   filteredEpisodeId = null,
   totalDueAllEpisodes,
 }: ReviewSessionProps) {
-  const router = useRouter();
-  const isClient = useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false
-  );
   const isOnline = useSyncExternalStore(
     subscribeOnlineStatus,
     () => window.navigator.onLine,
     () => true
-  );
-  const hasSpeechSynthesis = useSyncExternalStore(
-    emptySubscribe,
-    () => "speechSynthesis" in window,
-    () => false
   );
 
   const [queue] = useState<DueReviewItem[]>(initialQueue);
@@ -160,11 +166,6 @@ export function ReviewSession({
   const [ratingPreviews, setRatingPreviews] = useState<RatingPreviewOption[]>(
     []
   );
-  const [savingCount, setSavingCount] = useState(0);
-  const [runtimeFailedSave, setRuntimeFailedSave] =
-    useState<FailedSaveState | null>(null);
-  const [clearedStoredSave, setClearedStoredSave] = useState(false);
-  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
   const [sessionCounts, setSessionCounts] = useState<
     Record<ReviewGradeLabel, number>
   >({
@@ -174,19 +175,18 @@ export function ReviewSession({
     Easy: 0,
   });
 
-  // Audio playback state
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [audioError, setAudioError] = useState<string | null>(null);
-
-  const failedSave: FailedSaveState | null =
-    runtimeFailedSave ??
-    (isClient && !clearedStoredSave ? readStoredFailedSave() : null);
+  const playbackToken = useRef(0);
+  const [playingTarget, setPlayingTarget] = useState<AudioTarget | null>(null);
+  const [audioError, setAudioError] = useState<AudioPlaybackError | null>(
+    null
+  );
 
   const currentItem = queue[currentIndex] ?? null;
   const isFinished = currentIndex >= queue.length;
 
   const stopAnyAudio = useCallback(() => {
+    playbackToken.current += 1;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -195,7 +195,7 @@ export function ReviewSession({
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
-    setIsPlayingAudio(false);
+    setPlayingTarget(null);
   }, []);
 
   useEffect(() => {
@@ -235,68 +235,9 @@ export function ReviewSession({
     };
   }, [currentItem]);
 
-  const persistReviewRecord = useCallback(
-    async (record: PendingReviewRecord) => {
-      setSavingCount((c) => c + 1);
-      try {
-        const supabase = createClient();
-        const { data, error } = await supabase.rpc(
-          "submit_card_review",
-          record.rpcArgs
-        );
-
-        if (error || !data) {
-          throw new Error(
-            error?.message || "Could not save review. Check your connection."
-          );
-        }
-
-        const result = data as unknown as SubmitCardReviewResult;
-
-        if (typeof window !== "undefined") {
-          window.sessionStorage.removeItem(PENDING_STORAGE_KEY);
-        }
-        setClearedStoredSave(true);
-        setRuntimeFailedSave(null);
-
-        if (result.status === "version_conflict") {
-          setConflictNotice(
-            `Card "${record.cardPrompt}" was already reviewed on another device (v${
-              result.current_version ?? result.user_card.version
-            }). Kept your latest saved schedule without overwriting.`
-          );
-        }
-
-        return true;
-      } catch (err) {
-        if (typeof window !== "undefined") {
-          try {
-            window.sessionStorage.setItem(
-              PENDING_STORAGE_KEY,
-              JSON.stringify(record)
-            );
-          } catch {
-            // Storage quota exceeded; in-memory retry still active
-          }
-        }
-        setRuntimeFailedSave({
-          record,
-          errorMessage:
-            err instanceof Error
-              ? err.message
-              : "Network failure while saving review.",
-        });
-        return false;
-      } finally {
-        setSavingCount((c) => Math.max(0, c - 1));
-      }
-    },
-    []
-  );
-
   const handleGrade = useCallback(
     async (grade: ReviewGrade) => {
-      if (!currentItem || !revealed || failedSave) {
+      if (!currentItem || !revealed) {
         return;
       }
 
@@ -313,115 +254,137 @@ export function ReviewSession({
         grade,
         now
       );
-
+      const nowIso = now.toISOString();
       const eventId = crypto.randomUUID();
-      const record: PendingReviewRecord = {
-        eventId,
-        cardId: currentItem.card.id,
-        cardPrompt: currentItem.card.question,
-        gradeLabel,
-        rpcArgs: {
-          p_event_id: eventId,
-          p_card_id: currentItem.card.id,
-          p_expected_version: currentItem.userCard.version,
-          p_rating: transition.grade,
-          p_fsrs_state: transition.fsrsState,
-          p_due_offset_ms: transition.dueOffsetMs,
-          p_stability: transition.stability,
-          p_difficulty: transition.difficulty,
-          p_elapsed_days: transition.elapsedDays,
-          p_scheduled_days: transition.scheduledDays,
-          p_learning_steps: transition.learningSteps,
-          p_reps: transition.reps,
-          p_lapses: transition.lapses,
+
+      recordLocalReview(
+        currentItem.card.id,
+        {
+          ...currentItem.userCard,
+          due_at: transition.dueAtIso,
+          last_review_at: nowIso,
+          fsrs_state: transition.fsrsState,
+          stability: transition.stability,
+          difficulty: transition.difficulty,
+          elapsed_days: transition.elapsedDays,
+          scheduled_days: transition.scheduledDays,
+          learning_steps: transition.learningSteps,
+          reps: transition.reps,
+          lapses: transition.lapses,
+          version: currentItem.userCard.version + 1,
+          updated_at: nowIso,
         },
-      };
+        {
+          eventId,
+          cardId: currentItem.card.id,
+          question: currentItem.card.question,
+          gradeLabel,
+          rpcArgs: {
+            p_event_id: eventId,
+            p_card_id: currentItem.card.id,
+            p_expected_version: currentItem.userCard.version,
+            p_rating: transition.grade,
+            p_fsrs_state: transition.fsrsState,
+            p_due_offset_ms: transition.dueOffsetMs,
+            p_stability: transition.stability,
+            p_difficulty: transition.difficulty,
+            p_elapsed_days: transition.elapsedDays,
+            p_scheduled_days: transition.scheduledDays,
+            p_learning_steps: transition.learningSteps,
+            p_reps: transition.reps,
+            p_lapses: transition.lapses,
+          },
+        },
+      );
 
-      if (typeof window !== "undefined") {
-        try {
-          window.sessionStorage.setItem(
-            PENDING_STORAGE_KEY,
-            JSON.stringify(record)
-          );
-        } catch {
-          // Ignore storage error
-        }
-      }
-
-      const nextIndex = currentIndex + 1;
       setSessionCounts((prev) => ({
         ...prev,
         [gradeLabel]: prev[gradeLabel] + 1,
       }));
       setRevealed(false);
-      setCurrentIndex(nextIndex);
-
-      const ok = await persistReviewRecord(record);
-      if (ok && nextIndex >= queue.length) {
-        router.refresh();
-      }
+      setCurrentIndex(currentIndex + 1);
     },
-    [
-      currentIndex,
-      currentItem,
-      failedSave,
-      persistReviewRecord,
-      queue.length,
-      revealed,
-      router,
-      stopAnyAudio,
-    ]
+    [currentIndex, currentItem, revealed, stopAnyAudio],
   );
 
-  const handleRetryFailedSave = async () => {
-    if (!failedSave) return;
-    const ok = await persistReviewRecord(failedSave.record);
-    if (ok && isFinished) {
-      router.refresh();
+  const speakText = (text: string, target: AudioTarget, rate: number) => {
+    if (!currentItem || !("speechSynthesis" in window)) {
+      return;
     }
+    const token = playbackToken.current;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = currentItem.episode.language || "en-US";
+    utterance.rate = rate;
+    utterance.onend = () => {
+      if (playbackToken.current === token) {
+        setPlayingTarget(null);
+      }
+    };
+    utterance.onerror = (event) => {
+      if (playbackToken.current !== token) {
+        return;
+      }
+      setPlayingTarget(null);
+      if (!isIgnorableSpeechError(event.error)) {
+        setAudioError({
+          target,
+          message: "Could not play the voice in this browser.",
+        });
+      }
+    };
+    setPlayingTarget(target);
+    window.speechSynthesis.getVoices();
+    speakOnNextTurn(utterance, () => playbackToken.current === token);
   };
 
-  const handlePlayAudio = () => {
+  const handlePlay = (target: AudioTarget) => {
     if (!currentItem) return;
     setAudioError(null);
 
-    if (isPlayingAudio) {
+    if (playingTarget === target) {
       stopAnyAudio();
       return;
     }
 
+    stopAnyAudio();
+
+    if (target === "question") {
+      speakText(currentItem.card.question, "question", 0.9);
+      return;
+    }
+
     if (currentItem.card.audio_url) {
+      const token = playbackToken.current;
       const audio = new Audio(currentItem.card.audio_url);
       audioRef.current = audio;
-      setIsPlayingAudio(true);
-
+      setPlayingTarget("answer");
       audio.onended = () => {
-        setIsPlayingAudio(false);
+        if (playbackToken.current !== token) return;
+        setPlayingTarget(null);
         audioRef.current = null;
       };
       audio.onerror = () => {
-        setIsPlayingAudio(false);
+        if (playbackToken.current !== token) return;
+        setPlayingTarget(null);
         audioRef.current = null;
-        setAudioError("Could not load recorded audio file.");
+        setAudioError({
+          target: "answer",
+          message: "Could not load recorded audio file.",
+        });
       };
       audio.play().catch(() => {
-        setIsPlayingAudio(false);
+        if (playbackToken.current !== token) return;
+        setPlayingTarget(null);
         audioRef.current = null;
-        setAudioError("Audio playback was blocked by the browser.");
+        setAudioError({
+          target: "answer",
+          message: "Audio playback was blocked by the browser.",
+        });
       });
       return;
     }
 
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(currentItem.card.answer);
-      utterance.lang = currentItem.episode.language || "en-US";
-      utterance.rate = 0.96;
-      utterance.onend = () => setIsPlayingAudio(false);
-      utterance.onerror = () => setIsPlayingAudio(false);
-      setIsPlayingAudio(true);
-      window.speechSynthesis.speak(utterance);
-    }
+    speakText(spokenAnswer(currentItem.card), "answer", 0.96);
   };
 
   // Keyboard shortcuts for desktop study (Space/Enter to reveal, 1-4 to grade)
@@ -434,7 +397,7 @@ export function ReviewSession({
         return;
       }
 
-      if (!currentItem || failedSave) return;
+      if (!currentItem) return;
 
       if (!revealed && (event.key === " " || event.key === "Enter")) {
         if (
@@ -465,7 +428,7 @@ export function ReviewSession({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [currentItem, failedSave, handleGrade, revealed]);
+  }, [currentItem, handleGrade, revealed]);
 
   const totalReviewed = useMemo(
     () =>
@@ -477,7 +440,7 @@ export function ReviewSession({
   );
 
   // Empty due queue state
-  if (queue.length === 0 && !failedSave) {
+  if (queue.length === 0) {
     return (
       <div className="rounded-2xl border border-[#dce7e0] bg-white p-6 text-center shadow-xs sm:p-8">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eaf5ee] text-[#146c43]">
@@ -532,68 +495,8 @@ export function ReviewSession({
         >
           <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
-            You’re offline. Reconnect before grading so your review progress is
-            saved.
+            You’re offline. Grades stay on this device until you press Sync.
           </span>
-        </div>
-      )}
-
-      {failedSave && (
-        <div
-          role="alert"
-          className="rounded-2xl border border-[#f2c6c6] bg-[#fff5f5] p-4 text-xs text-[#9b2c2c]"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle
-                className="mt-0.5 h-4 w-4 shrink-0"
-                aria-hidden="true"
-              />
-              <div className="space-y-0.5">
-                <p className="font-semibold">
-                  Review save failed ({failedSave.record.gradeLabel})
-                </p>
-                <p className="leading-relaxed text-[#7f2323]">
-                  {failedSave.errorMessage}
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void handleRetryFailedSave()}
-              disabled={savingCount > 0}
-              className="inline-flex min-h-[40px] shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#9b2c2c] px-4 py-2 text-xs font-semibold text-white hover:bg-[#7f2323] disabled:opacity-60"
-            >
-              {savingCount > 0 ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Saving…</span>
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  <span>Retry Save</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {conflictNotice && (
-        <div
-          role="status"
-          className="flex items-start justify-between gap-3 rounded-xl border border-[#b2ddff] bg-[#eff8ff] px-3.5 py-2.5 text-xs text-[#175cd3]"
-        >
-          <p className="leading-relaxed">{conflictNotice}</p>
-          <button
-            type="button"
-            onClick={() => setConflictNotice(null)}
-            className="shrink-0 font-semibold underline"
-          >
-            Dismiss
-          </button>
         </div>
       )}
 
@@ -607,13 +510,9 @@ export function ReviewSession({
             Session complete
           </h1>
           <p className="mt-1 text-sm text-[#52635a]">
-            {savingCount > 0
-              ? "Finishing sync to your account…"
-              : failedSave
-              ? "Retry the unsaved card above to finish syncing."
-              : `Reviewed ${totalReviewed} ${
-                  totalReviewed === 1 ? "card" : "cards"
-                } and synced your FSRS schedule.`}
+            {`Reviewed ${totalReviewed} ${
+              totalReviewed === 1 ? "card" : "cards"
+            } on this device. Press Sync to update your account.`}
           </p>
 
           <div className="mt-5 grid grid-cols-4 gap-2">
@@ -663,16 +562,8 @@ export function ReviewSession({
                   </strong>{" "}
                   of {queue.length}
                 </span>
-                <span className="inline-flex items-center gap-1.5">
-                  {savingCount > 0 && (
-                    <span className="inline-flex items-center gap-1 text-[#146c43]">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      <span>Saving</span>
-                    </span>
-                  )}
-                  <span className="truncate font-medium text-[#146c43]">
-                    {currentItem.episode.title}
-                  </span>
+                <span className="truncate font-medium text-[#146c43]">
+                  {currentItem.episode.title}
                 </span>
               </div>
               <div
@@ -691,140 +582,60 @@ export function ReviewSession({
               </div>
             </div>
 
-            {/* Flashcard Surface */}
-            <article className="rounded-2xl border border-[#dce7e0] bg-white p-5 shadow-xs sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex items-center rounded-lg bg-[#eaf5ee] px-2.5 py-1 text-xs font-semibold text-[#146c43]">
-                  {currentItem.card.context}
-                </span>
-                <span className="rounded-md bg-[#f2f6f3] px-2 py-0.5 text-xs font-bold text-[#52635a]">
-                  Level {currentItem.card.level}
-                </span>
-              </div>
-
-              {/* Step 1: Question / Prompt */}
-              <div className="mt-5">
-                <p className="text-xs font-semibold tracking-wide text-[#52635a] uppercase">
-                  Prompt
-                </p>
-                <h1 className="mt-1.5 text-xl leading-snug font-bold text-[#132019] sm:text-2xl">
-                  “{currentItem.card.question}”
-                </h1>
-              </div>
-
-              {/* Step 2: Speaking Task */}
-              <div className="mt-5 rounded-xl border border-[#d6e8dc] bg-[#f4faf6] p-4">
-                <div className="flex items-start gap-2.5">
-                  <Mic
-                    className="mt-0.5 h-4 w-4 shrink-0 text-[#146c43]"
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <p className="text-xs font-semibold text-[#146c43]">
-                      Say your answer aloud
-                    </p>
-                    <p className="mt-0.5 text-sm leading-relaxed font-medium text-[#132019]">
-                      {currentItem.card.task}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 3: Reveal CTA or Model Answer + Audio + Grading */}
-              {!revealed ? (
-                <div className="mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setRevealed(true)}
-                    disabled={Boolean(failedSave)}
-                    className="inline-flex min-h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#146c43] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#0f5635] disabled:opacity-50"
-                  >
-                    <Eye className="h-4 w-4" aria-hidden="true" />
-                    <span>Reveal Answer</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-6 space-y-5 border-t border-[#edf2ef] pt-5">
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold tracking-wide text-[#146c43] uppercase">
-                        Model Response
-                      </p>
-
-                      {(currentItem.card.audio_url || hasSpeechSynthesis) && (
+            <SpeakingCard
+              card={currentItem.card}
+              revealed={revealed}
+              onReveal={() => setRevealed(true)}
+              questionAudioError={
+                audioError?.target === "question" ? audioError.message : null
+              }
+              questionListenControl={
+                <PlaybackButton
+                  playing={playingTarget === "question"}
+                  name="the question"
+                  onClick={() => handlePlay("question")}
+                />
+              }
+              audioError={
+                audioError?.target === "answer" ? audioError.message : null
+              }
+              listenControl={
+                <PlaybackButton
+                  playing={playingTarget === "answer"}
+                  name="the sample answer"
+                  onClick={() => handlePlay("answer")}
+                />
+              }
+              grading={
+                <div className="space-y-2">
+                  <p className="text-center text-xs font-medium text-[#52635a]">
+                    How natural did your spoken answer feel?
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {REVIEW_GRADES.map(({ grade, label }) => {
+                      const preview = ratingPreviews.find(
+                        (p) => p.grade === grade
+                      );
+                      return (
                         <button
+                          key={label}
                           type="button"
-                          onClick={handlePlayAudio}
-                          className="inline-flex min-h-[36px] cursor-pointer items-center gap-1.5 rounded-xl border border-[#c8e3d2] bg-[#f4faf6] px-3 py-1.5 text-xs font-semibold text-[#146c43] transition hover:bg-[#eaf5ee]"
+                          onClick={() => void handleGrade(grade)}
+                          className={`flex min-h-[58px] cursor-pointer flex-col items-center justify-center rounded-xl border px-1.5 py-2 transition focus:outline-none focus-visible:ring-2 disabled:opacity-50 ${GRADE_BUTTON_STYLES[label]}`}
                         >
-                          {isPlayingAudio ? (
-                            <>
-                              <Square
-                                className="h-3.5 w-3.5 fill-current"
-                                aria-hidden="true"
-                              />
-                              <span>Stop</span>
-                            </>
-                          ) : (
-                            <>
-                              <Volume2
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                              />
-                              <span>
-                                {currentItem.card.audio_url
-                                  ? "Listen"
-                                  : "Listen (Voice)"}
-                              </span>
-                            </>
-                          )}
+                          <span className="text-xs font-bold sm:text-sm">
+                            {label}
+                          </span>
+                          <span className="mt-0.5 text-[11px] font-medium opacity-85">
+                            {preview?.intervalLabel ?? "…"}
+                          </span>
                         </button>
-                      )}
-                    </div>
-
-                    <p className="mt-2 text-lg leading-relaxed font-semibold text-[#132019] sm:text-xl">
-                      “{currentItem.card.answer}”
-                    </p>
-
-                    {audioError && (
-                      <p className="mt-1.5 text-xs text-[#9b2c2c]">
-                        {audioError}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Step 4: FSRS Rating Buttons */}
-                  <div className="space-y-2">
-                    <p className="text-center text-xs font-medium text-[#52635a]">
-                      How natural did your spoken answer feel?
-                    </p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {REVIEW_GRADES.map(({ grade, label }) => {
-                        const preview = ratingPreviews.find(
-                          (p) => p.grade === grade
-                        );
-                        return (
-                          <button
-                            key={label}
-                            type="button"
-                            onClick={() => void handleGrade(grade)}
-                            disabled={Boolean(failedSave)}
-                            className={`flex min-h-[58px] cursor-pointer flex-col items-center justify-center rounded-xl border px-1.5 py-2 transition focus:outline-none focus-visible:ring-2 disabled:opacity-50 ${GRADE_BUTTON_STYLES[label]}`}
-                          >
-                            <span className="text-xs font-bold sm:text-sm">
-                              {label}
-                            </span>
-                            <span className="mt-0.5 text-[11px] font-medium opacity-85">
-                              {preview?.intervalLabel ?? "…"}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
-              )}
-            </article>
+              }
+            />
           </>
         )
       )}

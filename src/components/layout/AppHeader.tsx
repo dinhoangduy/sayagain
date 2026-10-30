@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, Home, Mic, Plus, Settings } from "lucide-react";
+import { SyncButton } from "@/components/layout/SyncButton";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: Home },
@@ -65,6 +66,7 @@ export function AppHeader() {
             })}
           </nav>
 
+          <SyncButton />
           <Link
             href="/import"
             aria-current={importActive ? "page" : undefined}

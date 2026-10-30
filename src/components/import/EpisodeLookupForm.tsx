@@ -22,9 +22,7 @@ export function EpisodeLookupForm({
     event.preventDefault();
     const episodeId = extractEpisodeIdFromInput(value);
     if (!episodeId) {
-      setError(
-        "Enter a valid episode ID or link (for example: episode-001)."
-      );
+      setError("Paste a valid import link.");
       return;
     }
 
@@ -51,7 +49,7 @@ export function EpisodeLookupForm({
               setValue(e.target.value);
               if (error) setError(null);
             }}
-            placeholder="Enter episode ID (e.g. episode-001) or paste link"
+            placeholder="Paste the import link"
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}

@@ -20,8 +20,10 @@ export type Database = {
           context: string;
           created_at: string;
           episode_id: string;
+          framework: Json | null;
           id: string;
-          level: string;
+          image_url: string | null;
+          level: string | null;
           question: string;
           sort_order: number;
           task: string;
@@ -34,8 +36,10 @@ export type Database = {
           context: string;
           created_at?: string;
           episode_id: string;
+          framework?: Json | null;
           id: string;
-          level: string;
+          image_url?: string | null;
+          level?: string | null;
           question: string;
           sort_order?: number;
           task: string;
@@ -48,8 +52,10 @@ export type Database = {
           context?: string;
           created_at?: string;
           episode_id?: string;
+          framework?: Json | null;
           id?: string;
-          level?: string;
+          image_url?: string | null;
+          level?: string | null;
           question?: string;
           sort_order?: number;
           task?: string;
@@ -268,8 +274,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      get_published_deck: {
+        Args: { p_episode_id: string };
+        Returns: Json;
+      };
       import_episode_deck: {
         Args: { p_episode_id: string };
+        Returns: Json;
+      };
+      sync_study_collection: {
+        Args: { p_reviews: Json };
         Returns: Json;
       };
       submit_card_review: {

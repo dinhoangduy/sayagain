@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { requestSync } from "@/lib/study/store";
 import type { ImportEpisodeDeckResult } from "@/lib/supabase/database.types";
 
 interface ImportDeckConfirmProps {
@@ -58,6 +59,7 @@ export function ImportDeckConfirm({
 
       const parsed = data as unknown as ImportEpisodeDeckResult;
       setResult(parsed);
+      await requestSync();
       router.refresh();
     } catch (err) {
       setError(

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppHeader, MobileBottomNav } from "@/components/layout/AppHeader";
+import { StudyBoot, SyncStatus } from "@/components/layout/SyncButton";
+import { TopLoader } from "@/components/layout/TopLoader";
 import { InstallBanner } from "@/components/pwa/InstallBanner";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
 import "./globals.css";
@@ -61,10 +63,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-dvh flex-col bg-[#f7faf8] text-[#132019]">
+        <TopLoader />
+        <StudyBoot />
         <ServiceWorkerRegistrar />
         <InstallBanner />
         <AppHeader />
         <main className="mx-auto w-full max-w-xl flex-1 px-4 pt-5 pb-24 sm:pb-12">
+          <SyncStatus />
           {children}
         </main>
         <MobileBottomNav />

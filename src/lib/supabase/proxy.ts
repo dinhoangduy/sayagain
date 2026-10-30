@@ -13,6 +13,18 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 export async function updateSession(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+
+  if (pathname === "/" && request.nextUrl.searchParams.has("code")) {
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = "/auth/callback";
+    return NextResponse.redirect(callbackUrl);
+  }
+
+  if (!isProtectedPath(pathname)) {
+    return NextResponse.next();
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -45,20 +57,7 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;
 
-  const { pathname, search } = request.nextUrl;
-
-  // Fallback: if Supabase redirected an OAuth `?code=` to Site URL `/`, forward cleanly to `/auth/callback`
-  if (pathname === "/" && request.nextUrl.searchParams.has("code")) {
-    const callbackUrl = request.nextUrl.clone();
-    callbackUrl.pathname = "/auth/callback";
-    const redirectResponse = NextResponse.redirect(callbackUrl);
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie);
-    });
-    return redirectResponse;
-  }
-
-  if (!claims && isProtectedPath(pathname)) {
+  if (!claims) {
     const loginHref = buildLoginHref(`${pathname}${search}`);
     const loginUrl = new URL(loginHref, request.url);
     const redirectResponse = NextResponse.redirect(loginUrl);

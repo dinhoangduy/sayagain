@@ -10,7 +10,7 @@ insert into public.episodes (
   published_at
 )
 values (
-  'episode-001',
+  'db70b939405121f61a0f82b6',
   'Ordering Coffee',
   'Daily Conversations · Café & Food',
   'Practice polite everyday café requests, customizing drinks, and handling barista follow-up questions naturally.',
@@ -41,7 +41,7 @@ insert into public.cards (
 values
   (
     'episode-001-a2-order',
-    'episode-001',
+    'db70b939405121f61a0f82b6',
     1,
     'A2',
     'At the café counter',
@@ -53,7 +53,7 @@ values
   ),
   (
     'episode-001-a2-milk',
-    'episode-001',
+    'db70b939405121f61a0f82b6',
     2,
     'A2',
     'Customizing your drink',
@@ -65,7 +65,7 @@ values
   ),
   (
     'episode-001-b1-sweetness',
-    'episode-001',
+    'db70b939405121f61a0f82b6',
     3,
     'B1',
     'Adjusting flavor & ice',
@@ -77,7 +77,7 @@ values
   ),
   (
     'episode-001-b1-pastry',
-    'episode-001',
+    'db70b939405121f61a0f82b6',
     4,
     'B1',
     'Adding a snack',
@@ -89,7 +89,7 @@ values
   ),
   (
     'episode-001-b2-for-here',
-    'episode-001',
+    'db70b939405121f61a0f82b6',
     5,
     'B2',
     'Wrapping up & paying',

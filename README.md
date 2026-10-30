@@ -1,8 +1,8 @@
 # SayAgain — English Speaking Flashcard Practice (MVP)
 
-A lightweight, mobile-first Progressive Web App (PWA) for daily English speaking practice linked to **English Speaking Challenge** episodes. Viewers open an episode link (such as `/import/episode-001`), sign in with Google, preview and import the episode’s speaking cards idempotently, and review due cards daily using client-side **FSRS** (`ts-fsrs`) persisted to **Supabase Postgres** under Row Level Security (RLS).
+A lightweight, mobile-first Progressive Web App (PWA) for daily English speaking practice linked to **English Speaking Challenge** episodes. Viewers open an import link (`/import/{id}`), sign in with Google, preview and import the episode’s speaking cards idempotently, and review due cards daily using client-side **FSRS** (`ts-fsrs`) persisted to **Supabase Postgres** under Row Level Security (RLS). The id is not a sequential name, and the app does not list every published deck.
 
-> **Integration boundary:** This repository is completely independent from the Remotion / Python Edge-TTS video production pipeline. Episode decks are imported via a standalone `episode.cards.json` export contract.
+> **Integration boundary:** SayAgain is the deployed app. `english-one-minute` stays on your machine and posts a finished episode to `POST /api/publish/episode` on that deployment. Learners open `/import/{id}`. The id is not a sequential name.
 
 ---
 
@@ -36,14 +36,17 @@ cp .env.example .env.local
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Browser + Server | Supabase project URL (`https://<project-ref>.supabase.co`) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes* | Browser + Server | Supabase publishable key (`sb_publishable_...`). *Falls back to `NEXT_PUBLIC_SUPABASE_ANON_KEY` if using legacy keys. |
 | `NEXT_PUBLIC_SITE_URL` | Optional | Server Auth Routes | Canonical public origin (e.g. `https://sayagain.vercel.app`) |
-| `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | CLI only | `scripts/publish-episode.ts` | Admin key for CLI deck publishing. **Never** prefix with `NEXT_PUBLIC_` or expose to client bundles. |
+| `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | CLI and publish API | `scripts/publish-episode.ts`, `POST /api/publish/episode` | Admin key for deck publishing. **Never** prefix with `NEXT_PUBLIC_` or expose to client bundles. |
+| `SAYAGAIN_PUBLISH_SECRET` | Publish API | `POST /api/publish/episode` | Bearer secret the video repo sends. **Never** prefix with `NEXT_PUBLIC_`. |
 
 ### 3. Apply Database Schema & Seed Episode 001
 
 If setting up a fresh Supabase project manually, open the **Supabase SQL Editor** and run in order:
 
 1. `supabase/migrations/20261030090000_init_sayagain_mvp.sql`
-2. `supabase/seed.sql` *(seeds `episode-001`: **Ordering Coffee** with 5 speaking cards)*
+2. `supabase/migrations/20261030120000_card_framework.sql` *(framework steps, optional picture, public `card-images` bucket)*
+3. `supabase/migrations/20261030150000_opaque_episode_links.sql` *(unguessable import id for Ordering Coffee, and no public episode list)*
+4. `supabase/seed.sql` *(seeds **Ordering Coffee** with 5 speaking cards; the import path is an id, and the title stays Ordering Coffee)*
 
 ### 4. Configure Google OAuth in Supabase
 
@@ -64,7 +67,7 @@ If setting up a fresh Supabase project manually, open the **Supabase SQL Editor*
 pnpm dev
 ```
 
-Open `http://localhost:5001` or test the deep-link flow directly at `http://localhost:5001/import/episode-001`.
+Open `http://localhost:5001`. Import links look like `/import/{id}`, not `/import/episode-001`.
 
 ---
 
@@ -75,6 +78,16 @@ Validated episode JSON files live in `content/episodes/` (see `content/episodes/
 ```bash
 SUPABASE_SECRET_KEY="sb_secret_..." pnpm episode:publish content/episodes/episode-001.cards.json
 ```
+
+Framework episodes from `english-one-minute` use one card. The front is a picture (when the episode has `pictureImage`) or the situation text, then the question, then the three framework labels. Reveal shows each step as `Label: answer`.
+
+From the video repo, after the MP4 looks right:
+
+```bash
+npm run publish:card -- --episode data/SCN-001-unrealistic_deadline.json
+```
+
+That command calls the deployed SayAgain app: set `SAYAGAIN_PUBLISH_URL` to `https://<your-vercel-domain>/api/publish/episode`. `english-one-minute` stays local. The same `SAYAGAIN_PUBLISH_SECRET` must be set in that repo’s `.env` and in Vercel. The command prints a full import URL whose id is not the video file name. Republishing with the same secret updates the same card. Apply migration `20261030150000_opaque_episode_links.sql` on Supabase before the first publish.
 
 ---
 
@@ -96,6 +109,7 @@ pnpm build       # Production Next.js build
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - `NEXT_PUBLIC_SITE_URL` = `https://<your-production-domain>`
+   - `SAYAGAIN_PUBLISH_SECRET` = the same long random string used in `english-one-minute/.env`
 3. Update **Supabase Dashboard → Authentication → URL Configuration**:
    - Set **Site URL** to `https://<your-production-domain>`
    - Add `https://<your-production-domain>/auth/callback` (and optional preview URLs) to **Redirect URLs**.

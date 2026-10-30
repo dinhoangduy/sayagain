@@ -4,7 +4,11 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Layers, MessageSquare } from "lucide-react";
 import { ImportDeckConfirm } from "@/components/import/ImportDeckConfirm";
 import { buildLoginHref } from "@/lib/auth/redirect";
-import { episodeIdSchema } from "@/lib/episodes/schema";
+import {
+  episodeIdSchema,
+  parseCardFramework,
+  parsePublishedDeck,
+} from "@/lib/episodes/schema";
 import { createClient } from "@/lib/supabase/server";
 
 interface ImportEpisodePageProps {
@@ -23,15 +27,13 @@ export async function generateMetadata({
   }
 
   const supabase = await createClient();
-  const { data: episode } = await supabase
-    .from("episodes")
-    .select("title")
-    .eq("id", parsed.data)
-    .eq("status", "published")
-    .maybeSingle();
+  const { data } = await supabase.rpc("get_published_deck", {
+    p_episode_id: parsed.data,
+  });
+  const deck = parsePublishedDeck(data);
 
   return {
-    title: episode ? `Import: ${episode.title}` : "Episode Not Found",
+    title: deck ? `Import: ${deck.episode.title}` : "Episode Not Found",
   };
 }
 
@@ -47,19 +49,16 @@ export default async function ImportEpisodePage({
   const episodeId = parsedId.data;
   const supabase = await createClient();
 
-  // Step 1: Validate episode exists and is published (friendly 404 before auth if invalid/unpublished)
-  const { data: episode, error: episodeError } = await supabase
-    .from("episodes")
-    .select("id, title, topic, description, language, source_url, status")
-    .eq("id", episodeId)
-    .eq("status", "published")
-    .maybeSingle();
-
-  if (episodeError || !episode) {
+  const { data: deckPayload } = await supabase.rpc("get_published_deck", {
+    p_episode_id: episodeId,
+  });
+  const deck = parsePublishedDeck(deckPayload);
+  if (!deck) {
     notFound();
   }
 
-  // Step 2: Require authentication, preserving exact return path `/import/{episodeId}`
+  const episode = deck.episode;
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -68,14 +67,7 @@ export default async function ImportEpisodePage({
     redirect(buildLoginHref(`/import/${episode.id}`));
   }
 
-  // Step 3: Load deck cards and current user's import state
-  const { data: cards } = await supabase
-    .from("cards")
-    .select("id, level, context, question, task, answer, sort_order")
-    .eq("episode_id", episode.id)
-    .order("sort_order", { ascending: true });
-
-  const deckCards = cards ?? [];
+  const deckCards = deck.cards;
   const cardIds = deckCards.map((c) => c.id);
 
   let ownedCardIds = new Set<string>();
@@ -175,6 +167,7 @@ export default async function ImportEpisodePage({
         <ol className="space-y-3">
           {deckCards.map((card, index) => {
             const alreadyOwned = ownedCardIds.has(card.id);
+            const framework = parseCardFramework(card.framework);
             return (
               <li
                 key={card.id}
@@ -185,12 +178,11 @@ export default async function ImportEpisodePage({
                     <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-md bg-[#f2f6f3] px-1.5 text-xs font-bold text-[#52635a]">
                       {index + 1}
                     </span>
-                    <span className="rounded-md bg-[#eaf5ee] px-2 py-0.5 text-xs font-bold text-[#146c43]">
-                      {card.level}
-                    </span>
-                    <span className="text-xs font-medium text-[#52635a]">
-                      {card.context}
-                    </span>
+                    {card.level ? (
+                      <span className="rounded-md bg-[#eaf5ee] px-2 py-0.5 text-xs font-bold text-[#146c43]">
+                        {card.level}
+                      </span>
+                    ) : null}
                   </div>
 
                   {alreadyOwned && (
@@ -201,6 +193,17 @@ export default async function ImportEpisodePage({
                 </div>
 
                 <div className="mt-3 space-y-2">
+                  {card.image_url ? (
+                    <img
+                      src={card.image_url}
+                      alt={card.context}
+                      className="aspect-[4/3] w-full rounded-xl object-cover"
+                    />
+                  ) : (
+                    <p className="text-sm leading-snug font-semibold text-[#146c43]">
+                      {card.context}
+                    </p>
+                  )}
                   <div className="flex items-start gap-2">
                     <MessageSquare
                       className="mt-0.5 h-4 w-4 shrink-0 text-[#52635a]"
@@ -210,12 +213,27 @@ export default async function ImportEpisodePage({
                       “{card.question}”
                     </p>
                   </div>
-                  <p className="rounded-xl bg-[#f7faf8] px-3 py-2 text-xs leading-relaxed text-[#355443]">
-                    <span className="font-semibold text-[#146c43]">
-                      Speaking task:
-                    </span>{" "}
-                    {card.task}
-                  </p>
+                  {framework ? (
+                    <div className="rounded-xl bg-[#f7faf8] px-3 py-2 text-xs leading-relaxed text-[#355443]">
+                      <p className="font-semibold text-[#146c43]">
+                        {framework.name}
+                      </p>
+                      <ol className="mt-1.5 space-y-1">
+                        {framework.steps.map((step, stepIndex) => (
+                          <li key={`${step.label}-${stepIndex}`}>
+                            {stepIndex + 1}. {step.label}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  ) : (
+                    <p className="rounded-xl bg-[#f7faf8] px-3 py-2 text-xs leading-relaxed text-[#355443]">
+                      <span className="font-semibold text-[#146c43]">
+                        Speaking task:
+                      </span>{" "}
+                      {card.task}
+                    </p>
+                  )}
                 </div>
               </li>
             );
