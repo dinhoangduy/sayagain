@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DECK_CATALOG_TTL_MS,
+  deckImportId,
   formatRefreshWait,
   isCatalogStale,
   parseCatalogDecks,
@@ -25,6 +26,13 @@ function deck(id: string, publishedAt: string | null, cardCount = 1): CatalogDec
 }
 
 describe("deck catalog cache", () => {
+  it("previews a bank code instead of a hashed episode id", () => {
+    expect(deckImportId("fa46986aa5a5d9cc43d82b38", "SCN-021")).toBe("SCN-021");
+    expect(deckImportId("db70b939405121f61a0f82b6", "Cafe")).toBe(
+      "db70b939405121f61a0f82b6",
+    );
+  });
+
   it("keeps valid rows and drops malformed ones", () => {
     const decks = parseCatalogDecks([
       {

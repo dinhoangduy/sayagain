@@ -46,7 +46,7 @@ If setting up a fresh Supabase project manually, open the **Supabase SQL Editor*
 1. `supabase/migrations/20261030090000_init_sayagain_mvp.sql`
 2. `supabase/migrations/20261030120000_card_framework.sql` *(framework steps, optional picture, public `card-images` bucket)*
 3. `supabase/migrations/20261030150000_opaque_episode_links.sql` *(unguessable import ids, and no public episode list)*
-4. `supabase/seed.sql` *(seeds a local published deck. The in-app sample link is `/import/fa46986aa5a5d9cc43d82b38`, **SCN-021 You forgot their name again**)*
+4. `supabase/seed.sql` *(seeds a local published deck. The in-app sample link is `/import/SCN-021`, **You forgot their name again**)*
 
 ### 4. Configure Google OAuth in Supabase
 

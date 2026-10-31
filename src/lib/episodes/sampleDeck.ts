@@ -1,5 +1,5 @@
 /**
- * Import id for the sample deck SCN-021 You forgot their name again.
- * The link uses this id so it is not a sequential name.
+ * Import path for the sample deck SCN-021 You forgot their name again.
+ * The public link is the bank code.
  */
-export const SAMPLE_EPISODE_ID = "fa46986aa5a5d9cc43d82b38";
+export const SAMPLE_EPISODE_ID = "SCN-021";

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 import {
   DECK_CATALOG_TTL_MS,
+  deckImportId,
   formatRefreshWait,
   isCatalogStale,
   loadDeckCatalog,
@@ -138,7 +139,9 @@ export function AvailableDecks() {
       ) : catalog && catalog.decks.length > 0 ? (
         <ul className="mt-4 divide-y divide-[#edf2ef] rounded-xl border border-[#edf2ef]">
           {catalog.decks.map((deck) => {
-            const owned = ownedByEpisode.get(deck.id) ?? 0;
+            const importId = deckImportId(deck.id, deck.topic);
+            const owned =
+              ownedByEpisode.get(importId) ?? ownedByEpisode.get(deck.id) ?? 0;
             const imported = deck.cardCount > 0 && owned >= deck.cardCount;
             const adding = cardsThatWouldBeNew(deck.cardCount, owned);
             const blocked =
@@ -146,7 +149,7 @@ export function AvailableDecks() {
             return (
               <li key={deck.id}>
                 <Link
-                  href={`/import/${deck.id}`}
+                  href={`/import/${importId}`}
                   className="flex items-center justify-between gap-3 px-3.5 py-3 transition hover:bg-[#f7faf8]"
                 >
                   <span className="min-w-0">

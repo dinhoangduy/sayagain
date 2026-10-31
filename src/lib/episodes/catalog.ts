@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { episodeIdSchema } from "@/lib/episodes/schema";
+import { BANK_CODE_REGEX, episodeIdSchema } from "@/lib/episodes/schema";
 import { createClient } from "@/lib/supabase/client";
 
 export const DECK_CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
-const STORAGE_KEY = "sayagain_deck_catalog_v1";
+const STORAGE_KEY = "sayagain_deck_catalog_v2";
 
 export type CatalogDeck = {
   id: string;
@@ -43,6 +43,21 @@ const storedCatalogSchema = z.object({
 });
 
 let inflight: Promise<StoredCatalog> | null = null;
+
+/**
+ * Chooses the import path for a catalog row.
+ * A bank code stored in `topic` wins over an older hashed episode id.
+ * @param id - Episode id from the catalog.
+ * @param topic - Episode topic, which holds `SCN-021` for published scenario decks.
+ * @returns The code when the topic is a bank code, otherwise the episode id.
+ */
+export function deckImportId(id: string, topic: string): string {
+  const code = topic.trim().toUpperCase();
+  if (BANK_CODE_REGEX.test(code)) {
+    return code;
+  }
+  return id;
+}
 
 /**
  * Orders decks newest-first. Missing dates sort last; equal dates break on id.
