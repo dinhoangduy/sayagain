@@ -1,4 +1,4 @@
-import type { CardFramework } from "@/lib/episodes/schema";
+import type { CardFollowUp, CardFramework } from "@/lib/episodes/schema";
 import type { UserCardRow } from "@/lib/supabase/database.types";
 import type { ReviewGradeLabel } from "@/lib/fsrs/scheduler";
 
@@ -13,6 +13,7 @@ export type StudyCard = {
   audio_url: string | null;
   image_url: string | null;
   framework: CardFramework | null;
+  followUps: CardFollowUp[];
 };
 
 export type StudyEpisode = {

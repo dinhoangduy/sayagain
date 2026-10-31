@@ -24,7 +24,7 @@ import {
   type ReviewGradeLabel,
 } from "@/lib/fsrs/scheduler";
 import { recordLocalReview } from "@/lib/study/store";
-import type { CardFramework } from "@/lib/episodes/schema";
+import type { CardFollowUp, CardFramework } from "@/lib/episodes/schema";
 import { SpeakingCard } from "@/components/review/SpeakingCard";
 import type { UserCardRow } from "@/lib/supabase/database.types";
 
@@ -41,6 +41,7 @@ export interface DueReviewItem {
     audio_url: string | null;
     image_url: string | null;
     framework: CardFramework | null;
+    followUps?: CardFollowUp[];
   };
   episode: {
     id: string;

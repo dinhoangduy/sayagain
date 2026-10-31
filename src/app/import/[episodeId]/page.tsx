@@ -3,9 +3,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Layers, MessageSquare } from "lucide-react";
 import { ImportDeckConfirm } from "@/components/import/ImportDeckConfirm";
+import { FollowUpQuestions } from "@/components/review/FollowUpQuestions";
 import { buildLoginHref } from "@/lib/auth/redirect";
 import {
   episodeIdSchema,
+  parseCardFollowUps,
   parseCardFramework,
   parsePublishedDeck,
 } from "@/lib/episodes/schema";
@@ -66,6 +68,9 @@ export default async function ImportEpisodePage({
   }
 
   const episodeId = parsedId.data;
+  if (rawParams.episodeId !== episodeId) {
+    redirect(`/import/${episodeId}`);
+  }
   const supabase = await createClient();
 
   const { data: deckPayload } = await supabase.rpc("get_published_deck", {
@@ -187,6 +192,7 @@ export default async function ImportEpisodePage({
           {deckCards.map((card, index) => {
             const alreadyOwned = ownedCardIds.has(card.id);
             const framework = parseCardFramework(card.framework);
+            const followUps = parseCardFollowUps(card.follow_ups);
             return (
               <li
                 key={card.id}
@@ -253,6 +259,7 @@ export default async function ImportEpisodePage({
                       {card.task}
                     </p>
                   )}
+                  <FollowUpQuestions followUps={followUps} />
                 </div>
               </li>
             );

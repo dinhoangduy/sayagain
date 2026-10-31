@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { parseCardFramework } from "@/lib/episodes/schema";
+import { parseCardFollowUps, parseCardFramework } from "@/lib/episodes/schema";
 import { createClient } from "@/lib/supabase/client";
 import type { UserCardRow } from "@/lib/supabase/database.types";
 import {
@@ -104,11 +104,15 @@ function asItems(value: unknown): StudyItem[] | null {
     if (!record.userCard?.id || !record.card?.id || !record.episode?.id) {
       return null;
     }
+    const rawCard = record.card as StudyItem["card"] & {
+      follow_ups?: unknown;
+    };
     items.push({
       userCard: record.userCard,
       card: {
         ...record.card,
         framework: parseCardFramework(record.card.framework),
+        followUps: parseCardFollowUps(rawCard.followUps ?? rawCard.follow_ups),
       },
       episode: record.episode,
     });

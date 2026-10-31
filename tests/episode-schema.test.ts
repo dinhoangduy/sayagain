@@ -135,7 +135,54 @@ describe("episodeExportSchema & extractEpisodeIdFromInput", () => {
         "https://sayagain.vercel.app/import/episode-001?utm_source=tiktok"
       )
     ).toBe("episode-001");
+    expect(extractEpisodeIdFromInput("scn-001")).toBe("SCN-001");
+    expect(
+      extractEpisodeIdFromInput("https://sayagain.app/import/CSF-052")
+    ).toBe("CSF-052");
     expect(extractEpisodeIdFromInput("invalid id with spaces")).toBeNull();
     expect(extractEpisodeIdFromInput("")).toBeNull();
+  });
+
+  it("keeps a bank code as the deck id and stores follow-up deck links", () => {
+    const parsed = episodeExportSchema.parse({
+      episodeId: "scn-001",
+      title: "An unrealistic deadline",
+      topic: "SCN-001",
+      status: "published",
+      cards: [
+        {
+          cardId: "SCN-001",
+          situation: "Your manager assigns a report due tomorrow.",
+          question: "Can you finish this by tomorrow?",
+          framework: {
+            id: "capacity-constraint-proposal",
+            name: "Capacity → Constraint → Proposal",
+            steps: [
+              { label: "Capacity", answer: "I can start on it today." },
+              { label: "Constraint", answer: "I've already got two urgent tasks." },
+              { label: "Proposal", answer: "Could we push it to Thursday?" },
+            ],
+          },
+          followUps: [
+            {
+              speaker: "Manager",
+              question: "Thursday is too late. What could you deliver by tomorrow?",
+              decks: [
+                { code: "csf-052", phrase: "Would it work if..." },
+                { code: "CSF-058", phrase: "Here's what I can do." },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(parsed.episodeId).toBe("SCN-001");
+    expect(parsed.cards[0].cardId).toBe("SCN-001");
+    const stored = toStoredCardDraft(parsed.cards[0]);
+    expect(stored.followUps[0]?.decks.map((deck) => deck.code)).toEqual([
+      "CSF-052",
+      "CSF-058",
+    ]);
   });
 });

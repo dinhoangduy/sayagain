@@ -2,6 +2,50 @@ import { z } from "zod";
 
 export const EPISODE_ID_REGEX = /^[a-z0-9][a-z0-9-]{1,63}$/;
 export const CARD_ID_REGEX = /^[a-z0-9][a-z0-9-]{1,95}$/;
+export const BANK_CODE_REGEX = /^(SCN|CSF|PIC)-\d{3}$/;
+
+/**
+ * Turns a typed id or bank code into the value stored on the episode.
+ * `scn-001` becomes `SCN-001`. Older lowercase ids stay lowercase.
+ * @param raw - Episode id, bank code, or path segment.
+ * @returns Canonical id, or null when the text is not an id.
+ */
+export function canonicalEpisodeId(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const code = trimmed.toUpperCase();
+  if (BANK_CODE_REGEX.test(code)) {
+    return code;
+  }
+  const lower = trimmed.toLowerCase();
+  if (EPISODE_ID_REGEX.test(lower) && lower.length <= 64) {
+    return lower;
+  }
+  return null;
+}
+
+/**
+ * Canonical card id. Bank codes stay uppercase; other ids stay lowercase.
+ * @param raw - Card id from a publish payload.
+ * @returns Canonical id, or null when the text is not a card id.
+ */
+export function canonicalCardId(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const code = trimmed.toUpperCase();
+  if (BANK_CODE_REGEX.test(code)) {
+    return code;
+  }
+  const lower = trimmed.toLowerCase();
+  if (CARD_ID_REGEX.test(lower)) {
+    return lower;
+  }
+  return null;
+}
 
 export const cefrLevelSchema = z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]);
 export type CefrLevel = z.infer<typeof cefrLevelSchema>;
@@ -12,20 +56,30 @@ export type EpisodeStatus = z.infer<typeof episodeStatusSchema>;
 export const episodeIdSchema = z
   .string()
   .trim()
-  .toLowerCase()
-  .regex(
-    EPISODE_ID_REGEX,
-    "Episode ID must be 2–64 lowercase letters, digits, or hyphens."
-  );
+  .superRefine((value, ctx) => {
+    if (!canonicalEpisodeId(value)) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Episode ID must be a code like SCN-001, or 2–64 lowercase letters, digits, or hyphens.",
+      });
+    }
+  })
+  .transform((value) => canonicalEpisodeId(value) as string);
 
 export const cardIdSchema = z
   .string()
   .trim()
-  .toLowerCase()
-  .regex(
-    CARD_ID_REGEX,
-    "Card ID must be 2–96 lowercase letters, digits, or hyphens."
-  );
+  .superRefine((value, ctx) => {
+    if (!canonicalCardId(value)) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Card ID must be a code like SCN-001, or 2–96 lowercase letters, digits, or hyphens.",
+      });
+    }
+  })
+  .transform((value) => canonicalCardId(value) as string);
 
 const mediaUrlSchema = z
   .string()
@@ -52,6 +106,26 @@ export const cardFrameworkSchema = z.object({
 });
 export type CardFramework = z.infer<typeof cardFrameworkSchema>;
 
+export const followUpDeckSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .transform((value) => value.toUpperCase())
+    .refine((value) => BANK_CODE_REGEX.test(value), "Deck code must look like CSF-052."),
+  phrase: z.string().trim().min(1).max(180),
+});
+export type FollowUpDeck = z.infer<typeof followUpDeckSchema>;
+
+/**
+ * A next question shown under a card, with links to the decks that practice it.
+ */
+export const cardFollowUpSchema = z.object({
+  speaker: z.string().trim().min(1).max(80),
+  question: z.string().trim().min(1).max(500),
+  decks: z.array(followUpDeckSchema).min(1).max(3),
+});
+export type CardFollowUp = z.infer<typeof cardFollowUpSchema>;
+
 const imageUploadSchema = z.object({
   contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
   dataBase64: z.string().trim().min(1).max(7_000_000),
@@ -74,6 +148,7 @@ const frameworkCardSchema = z.object({
   situation: z.string().trim().min(1).max(800),
   question: z.string().trim().min(1).max(500),
   framework: cardFrameworkSchema,
+  followUps: z.array(cardFollowUpSchema).max(3).optional(),
   imageUrl: mediaUrlSchema.nullable().optional(),
   image: imageUploadSchema.optional(),
   audioUrl: mediaUrlSchema.nullable().optional(),
@@ -123,6 +198,7 @@ export type StoredCardDraft = {
   audioUrl: string | null;
   imageUrl: string | null;
   framework: CardFramework | null;
+  followUps: CardFollowUp[];
   contentVersion: number;
   image: CardImageUpload | null;
 };
@@ -146,6 +222,7 @@ export function toStoredCardDraft(card: ExportedCard): StoredCardDraft {
       audioUrl: card.audioUrl ?? null,
       imageUrl: card.imageUrl ?? null,
       framework: card.framework,
+      followUps: card.followUps ?? [],
       contentVersion: card.contentVersion,
       image: card.image ?? null,
     };
@@ -161,9 +238,21 @@ export function toStoredCardDraft(card: ExportedCard): StoredCardDraft {
     audioUrl: card.audioUrl ?? null,
     imageUrl: null,
     framework: null,
+    followUps: [],
     contentVersion: card.contentVersion,
     image: null,
   };
+}
+
+/**
+ * Reads follow-up questions stored as jsonb. A bad value becomes an empty list
+ * so review still opens.
+ * @param value - Raw `cards.follow_ups` value, or the camelCase field on a cached card.
+ * @returns Parsed questions. Invalid entries are dropped.
+ */
+export function parseCardFollowUps(value: unknown): CardFollowUp[] {
+  const parsed = z.array(cardFollowUpSchema).max(3).safeParse(value);
+  return parsed.success ? parsed.data : [];
 }
 
 /**
@@ -197,6 +286,7 @@ const publishedDeckSchema = z.object({
       answer: z.string(),
       image_url: z.string().nullable(),
       framework: z.unknown(),
+      follow_ups: z.unknown().nullable().optional(),
       sort_order: z.number(),
     }),
   ),
@@ -228,13 +318,7 @@ export function extractEpisodeIdFromInput(rawInput: string): string | null {
     return null;
   }
 
-  let candidate = trimmed.toLowerCase();
-
-  const pathMatch = trimmed.match(/\/import\/([a-zA-Z0-9-]+)(?:[/?#]|$)/);
-  if (pathMatch?.[1]) {
-    candidate = pathMatch[1].toLowerCase();
-  }
-
-  const parsed = episodeIdSchema.safeParse(candidate);
-  return parsed.success ? parsed.data : null;
+  const pathMatch = trimmed.match(/\/import\/([A-Za-z0-9-]+)(?:[/?#]|$)/);
+  const candidate = pathMatch?.[1] ?? trimmed;
+  return canonicalEpisodeId(candidate);
 }

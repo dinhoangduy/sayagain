@@ -133,6 +133,7 @@ export async function publishEpisodeDeck(
       audio_url: draft.audioUrl,
       image_url: imageUrl,
       framework: draft.framework as Json,
+      follow_ups: draft.followUps.length > 0 ? (draft.followUps as Json) : null,
       content_version: draft.contentVersion,
     });
   }
@@ -142,7 +143,10 @@ export async function publishEpisodeDeck(
     .upsert(cardRows, { onConflict: "id" });
 
   if (cardsError) {
-    throw new Error(`Failed to upsert cards: ${cardsError.message}`);
+    const hint = cardsError.message.includes("follow_ups")
+      ? " Apply supabase/migrations/20261031120000_card_follow_ups.sql."
+      : "";
+    throw new Error(`Failed to upsert cards: ${cardsError.message}${hint}`);
   }
 
   return {

@@ -20,6 +20,7 @@ export type Database = {
           context: string;
           created_at: string;
           episode_id: string;
+          follow_ups: Json | null;
           framework: Json | null;
           id: string;
           image_url: string | null;
@@ -36,6 +37,7 @@ export type Database = {
           context: string;
           created_at?: string;
           episode_id: string;
+          follow_ups?: Json | null;
           framework?: Json | null;
           id: string;
           image_url?: string | null;
@@ -52,6 +54,7 @@ export type Database = {
           context?: string;
           created_at?: string;
           episode_id?: string;
+          follow_ups?: Json | null;
           framework?: Json | null;
           id?: string;
           image_url?: string | null;

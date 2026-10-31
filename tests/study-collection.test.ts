@@ -69,6 +69,7 @@ const collection: LocalCollection = {
         audio_url: null,
         image_url: null,
         framework: null,
+        followUps: [],
       },
       episode: {
         id: "ep-1",

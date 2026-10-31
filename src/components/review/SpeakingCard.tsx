@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 import { Eye, Mic } from "lucide-react";
-import type { CardFramework } from "@/lib/episodes/schema";
+import { FollowUpQuestions } from "@/components/review/FollowUpQuestions";
+import type { CardFollowUp, CardFramework } from "@/lib/episodes/schema";
 
 export type SpeakingCardContent = {
   context: string;
@@ -12,6 +13,7 @@ export type SpeakingCardContent = {
   level: string | null;
   image_url: string | null;
   framework: CardFramework | null;
+  followUps?: CardFollowUp[];
 };
 
 interface SpeakingCardProps {
@@ -29,6 +31,7 @@ interface SpeakingCardProps {
 /**
  * Renders one speaking card: picture or situation, the question, and the
  * framework labels. After reveal, each step is shown as "Label: answer".
+ * Follow-up questions, when present, sit under the card and link to their decks.
  * @param props.card - Situation, question, and optional framework steps.
  * @param props.revealed - Whether the sample answers are visible.
  * @param props.onReveal - Called when the learner asks to see the answers.
@@ -186,6 +189,8 @@ export function SpeakingCard({
           {grading}
         </div>
       )}
+
+      <FollowUpQuestions followUps={card.followUps} />
     </article>
   );
 }
